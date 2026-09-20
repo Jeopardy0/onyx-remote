@@ -54,7 +54,8 @@ public actor OnyxUDPTransport {
         self.connection = connection
 
         connection.stateUpdateHandler = { [weak self] newState in
-            Task { await self?.handleConnectionState(newState) }
+            guard let self else { return }
+            Task { await self.handleConnectionState(newState) }
         }
         connection.start(queue: .global(qos: .userInitiated))
         receiveNext(on: connection)
@@ -70,8 +71,8 @@ public actor OnyxUDPTransport {
 
     public func send(_ data: Data) {
         connection?.send(content: data, completion: .contentProcessed { [weak self] error in
-            guard let error else { return }
-            Task { await self?.handleSendFailure(error) }
+            guard let error, let self else { return }
+            Task { await self.handleSendFailure(error) }
         })
     }
 

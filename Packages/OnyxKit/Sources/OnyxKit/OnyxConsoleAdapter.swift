@@ -50,7 +50,8 @@ public actor OnyxConsoleAdapter: ConsoleAdapter {
         let id = UUID()
         feedbackContinuations[id] = continuation
         continuation.onTermination = { [weak self] _ in
-            Task { await self?.removeContinuation(id) }
+            guard let self else { return }
+            Task { await self.removeContinuation(id) }
         }
         return stream
     }
