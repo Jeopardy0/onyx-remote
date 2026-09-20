@@ -1,0 +1,75 @@
+# XcodeGen project spec. There is no committed .xcodeproj — CI (and any
+# local Xcode) runs `xcodegen generate` from this file first. Keeping the
+# project generated means no hand-edited pbxproj to fight with in review.
+name: OnyxRemote
+options:
+  bundleIdPrefix: com.onyxremote
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    TARGETED_DEVICE_FAMILY: "2" # iPad only, per docs/PLAN.md v1 scope
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    ENABLE_PREVIEWS: "YES"
+    # No Apple Developer team is wired into this repo; CI builds/tests
+    # against the Simulator only, which doesn't need real code signing.
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+
+packages:
+  PatchKit:
+    path: Packages/PatchKit
+  ConsoleKit:
+    path: Packages/ConsoleKit
+  OnyxKit:
+    path: Packages/OnyxKit
+
+targets:
+  OnyxRemote:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/OnyxRemote
+        excludes:
+          - "Info.plist"
+          - "OnyxRemote.entitlements"
+    resources:
+      - path: App/OnyxRemote/Resources/Fonts
+    dependencies:
+      - package: PatchKit
+      - package: ConsoleKit
+      - package: OnyxKit
+    info:
+      path: App/OnyxRemote/Info.plist
+    entitlements:
+      path: App/OnyxRemote/OnyxRemote.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.onyxremote.app
+
+  OnyxRemoteUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: App/OnyxRemoteUITests
+    dependencies:
+      - target: OnyxRemote
+
+schemes:
+  OnyxRemote:
+    build:
+      targets:
+        OnyxRemote: all
+        OnyxRemoteUITests: [test]
+    test:
+      targets:
+        - OnyxRemoteUITests
+    run:
+      config: Debug

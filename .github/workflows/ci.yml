@@ -1,0 +1,114 @@
+# Builds and tests the app on every push, and uploads screenshots of every
+# screen as a workflow artifact. Development on this repo happens without a
+# local Xcode install (see README.md), so this workflow is the only place
+# the app actually gets built and run — check the "Actions" tab (or the
+# GitHub mobile app) after each push instead of building locally.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    # Only GitHub-hosted macOS runners have Xcode / the iOS SDK.
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Show the Xcode/SDK versions this runner has
+        run: xcodebuild -version && xcodebuild -showsdks
+
+      # PatchKit and ConsoleKit are pure Swift (no Apple-only frameworks), so
+      # their tests run directly via SwiftPM — fast, and it's how you can
+      # also run them on Linux/any machine outside Xcode.
+      - name: Test PatchKit (pure Swift, no Apple frameworks)
+        working-directory: Packages/PatchKit
+        run: swift test
+
+      - name: Test ConsoleKit (pure Swift, no Apple frameworks)
+        working-directory: Packages/ConsoleKit
+        run: swift test
+
+      # OnyxKit's OSC codec and address book are pure Swift and tested the
+      # same way; its Network.framework transport/adapter code is wrapped in
+      # `#if canImport(Network)` and only compiles here (Apple platform) —
+      # it still can't be exercised without a real console, see docs/PLAN.md.
+      - name: Test OnyxKit (OSC codec + address book; transport needs a real console)
+        working-directory: Packages/OnyxKit
+        run: swift test
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # There is no committed .xcodeproj on purpose (see project.yml) — it's
+      # generated fresh every run so there's never a stale/hand-edited
+      # project file to fight with in review.
+      - name: Generate the Xcode project
+        run: xcodegen generate
+
+      - name: Pick an available iPad simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          # Runner images change their exact simulator list over time; find
+          # whatever iPad is actually available instead of hardcoding a name
+          # that can silently stop existing. `simctl list devices available`
+          # prints indented lines like:
+          #   iPad Pro (12.9-inch) (6th generation) (UUID) (Shutdown)
+          # so strip the leading whitespace and the trailing "(UUID) (state)".
+          DEVICE_NAME=$(xcrun simctl list devices available \
+            | grep -m1 "iPad" \
+            | sed -E 's/^ *//; s/ \([0-9A-F-]+\) \([A-Za-z]+\)$//')
+          if [ -z "$DEVICE_NAME" ]; then
+            echo "No iPad simulator found on this runner" >&2
+            xcrun simctl list devices available >&2
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE_NAME"
+          echo "device_name=$DEVICE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build the app for the Simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project OnyxRemote.xcodeproj \
+            -scheme OnyxRemote \
+            -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.device_name }},OS=latest"
+
+      # Runs the app in the Simulator against MockConsoleAdapter (the app's
+      # default — no real console involved) and walks every screen,
+      # attaching a screenshot of each (see App/OnyxRemoteUITests).
+      - name: Run UI tests and capture screenshots
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project OnyxRemote.xcodeproj \
+            -scheme OnyxRemote \
+            -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.device_name }},OS=latest" \
+            -resultBundlePath TestResults.xcresult
+
+      - name: Extract screenshots from the test result bundle
+        if: always()
+        run: |
+          brew install chargepoint/xcparse/xcparse
+          mkdir -p screenshots
+          xcparse screenshots TestResults.xcresult screenshots/
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+          if-no-files-found: warn
+
+      - name: Upload full test result bundle (for debugging a failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-result-bundle
+          path: TestResults.xcresult

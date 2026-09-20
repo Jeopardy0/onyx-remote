@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	Needed for CITP discovery (multicast) in a later milestone (M4).
+	Apple must approve this entitlement per-app before it works on a real
+	device/App Store build — see docs/PLAN.md risks. Harmless to keep here
+	for simulator/local builds in the meantime.
+	-->
+	<key>com.apple.developer.networking.multicast</key>
+	<true/>
+</dict>
+</plist>
