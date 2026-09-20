@@ -1,9 +1,16 @@
 # Onyx Remote
 
-An iPad programming assistant for the Obsidian Onyx lighting console: patch
-view, fixture programming, a virtual NX K keypad, and playback control. Fills
-the gap left by the official iPhone-only "Onyx Remote," which doesn't report
-cuelist status.
+[![CI](https://github.com/Jeopardy0/onyx-remote/actions/workflows/ci.yml/badge.svg?branch=claude/new-app-layout-tccehc)](https://github.com/Jeopardy0/onyx-remote/actions/workflows/ci.yml)
+
+An iPad programming assistant for the Obsidian Onyx lighting console: a
+visual patch view, fixture programming, a virtual NX K keypad, and playback
+control — filling the gap left by the official Onyx Remote, which is
+iPhone-only and doesn't report cuelist status.
+
+Native SwiftUI, iPad landscape, iOS 17+. Works fully offline against a
+built-in mock console for patching and UI development; talks to a real Onyx
+console over OSC once connected (see Status below for what's wired up so
+far).
 
 Read `docs/PLAN.md` for milestones/risks/open questions and
 `docs/ONYX_INTEGRATION.md` for exactly what Onyx's OSC/Telnet/CITP interfaces
