@@ -19,6 +19,18 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
 
+      # macos-14 runners ship several Xcode versions side by side, with an
+      # older one selected by default. XcodeGen (installed fresh below, so it
+      # tracks whatever is current) can emit a project file format newer than
+      # that default Xcode understands ("future Xcode project file format") —
+      # selecting the newest installed Xcode avoids that mismatch.
+      - name: Select the newest available Xcode
+        run: |
+          set -euo pipefail
+          LATEST_XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Selecting $LATEST_XCODE"
+          sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
+
       - name: Show the Xcode/SDK versions this runner has
         run: xcodebuild -version && xcodebuild -showsdks
 
@@ -56,14 +68,14 @@ jobs:
           set -euo pipefail
           # Runner images change their exact simulator list over time; find
           # whatever iPad is actually available instead of hardcoding a name
-          # that can silently stop existing. `simctl list devices available`
-          # prints indented lines like:
-          #   iPad Pro (12.9-inch) (6th generation) (UUID) (Shutdown)
-          # so strip the leading whitespace and the trailing "(UUID) (state)".
-          DEVICE_NAME=$(xcrun simctl list devices available \
-            | grep -m1 "iPad" \
-            | sed -E 's/^ *//; s/ \([0-9A-F-]+\) \([A-Za-z]+\)$//')
-          if [ -z "$DEVICE_NAME" ]; then
+          # that can silently stop existing. Parsed as JSON (via jq, which
+          # ships on GitHub's macOS runners) rather than scraping the
+          # human-readable text — the device's own name can contain
+          # parentheses (e.g. "iPad Pro (11-inch) (4th generation)"), which
+          # made an earlier text-scraping version of this step unreliable.
+          DEVICE_NAME=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[][] | select(.name | contains("iPad"))][0].name')
+          if [ -z "$DEVICE_NAME" ] || [ "$DEVICE_NAME" = "null" ]; then
             echo "No iPad simulator found on this runner" >&2
             xcrun simctl list devices available >&2
             exit 1
@@ -77,7 +89,34 @@ jobs:
           xcodebuild build \
             -project OnyxRemote.xcodeproj \
             -scheme OnyxRemote \
-            -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.device_name }},OS=latest"
+            -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.device_name }},OS=latest" \
+            -derivedDataPath build
+
+      # This is a Simulator build (no code signing / Apple Developer account
+      # configured — see docs/PLAN.md) so it only runs in Simulator.app on a
+      # Mac, via `unzip` then drag onto a booted simulator, or
+      # `xcrun simctl install <device> OnyxRemote.app`. It cannot install on
+      # a real iPad; that needs TestFlight or a device build, which needs an
+      # Apple Developer account this repo doesn't have wired up yet.
+      - name: Package the Simulator build as an artifact
+        if: always()
+        run: |
+          set -euo pipefail
+          APP_PATH="build/Build/Products/Debug-iphonesimulator/OnyxRemote.app"
+          if [ -d "$APP_PATH" ]; then
+            mkdir -p dist
+            ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" dist/OnyxRemote-Simulator.app.zip
+          else
+            echo "No app bundle at $APP_PATH (build must have failed) — nothing to package."
+          fi
+
+      - name: Upload Simulator build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnyxRemote-Simulator-app
+          path: dist/
+          if-no-files-found: warn
 
       # Runs the app in the Simulator against MockConsoleAdapter (the app's
       # default — no real console involved) and walks every screen,
@@ -89,6 +128,7 @@ jobs:
             -project OnyxRemote.xcodeproj \
             -scheme OnyxRemote \
             -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.device_name }},OS=latest" \
+            -derivedDataPath build \
             -resultBundlePath TestResults.xcresult
 
       - name: Extract screenshots from the test result bundle
