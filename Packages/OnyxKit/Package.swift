@@ -9,6 +9,9 @@ import PackageDescription
 let package = Package(
     name: "OnyxKit",
     platforms: [.iOS(.v17), .macOS(.v13)],
+    products: [
+        .library(name: "OnyxKit", targets: ["OnyxKit"])
+    ],
     dependencies: [
         .package(path: "../PatchKit"),
         .package(path: "../ConsoleKit")
