@@ -17,8 +17,12 @@ final class ConsoleSession {
     private(set) var playbacks: [Int: SamplePlayback]
 
     private let adapter: any ConsoleAdapter
-    private var feedbackTask: Task<Void, Never>?
-    private var pollTask: Task<Void, Never>?
+    // `deinit` runs in a nonisolated context even for a @MainActor class, so
+    // it can't touch normal actor-isolated stored properties. Task.cancel()
+    // is thread-safe and idempotent, so opting these two out of isolation is
+    // safe — it's the standard way to cancel background tasks from deinit.
+    private nonisolated(unsafe) var feedbackTask: Task<Void, Never>?
+    private nonisolated(unsafe) var pollTask: Task<Void, Never>?
 
     init(adapter: any ConsoleAdapter) {
         self.adapter = adapter

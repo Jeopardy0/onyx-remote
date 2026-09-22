@@ -111,13 +111,13 @@ private struct ColorWheel: View {
             .contentShape(Circle())
             .gesture(
                 DragGesture(minimumDistance: 0).onChanged { drag in
-                    let dx = drag.location.x - center.x
-                    let dy = drag.location.y - center.y
-                    let distance = min(radius, sqrt(dx * dx + dy * dy))
-                    var angle = atan2(dy, dx) / (2 * .pi)
+                    let dx = Double(drag.location.x - center.x)
+                    let dy = Double(drag.location.y - center.y)
+                    let distance = min(Double(radius), (dx * dx + dy * dy).squareRoot())
+                    var angle = atan2(dy, dx) / (2 * Double.pi)
                     if angle < 0 { angle += 1 }
                     hue = angle
-                    saturation = Double(distance / radius)
+                    saturation = distance / Double(radius)
                 }
             )
         }
@@ -128,8 +128,10 @@ private struct ColorWheel: View {
     }
 
     private func knobPosition(center: CGPoint, radius: CGFloat) -> CGPoint {
-        let angle = hue * 2 * .pi
-        let distance = CGFloat(saturation) * radius
-        return CGPoint(x: center.x + cos(angle) * distance, y: center.y + sin(angle) * distance)
+        let angle = hue * 2 * Double.pi
+        let distance = saturation * Double(radius)
+        let x = center.x + CGFloat(cos(angle) * distance)
+        let y = center.y + CGFloat(sin(angle) * distance)
+        return CGPoint(x: x, y: y)
     }
 }
