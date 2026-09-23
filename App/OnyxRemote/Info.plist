@@ -26,12 +26,21 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<!-- iPad landscape only in v1 (see docs/PLAN.md) — no phone/portrait layout
+	     exists. Both the idiom-specific and base keys are set: the idiom-
+	     specific key alone left the app launching in portrait in Simulator
+	     (screenshots showed every screen's right-side panel clipped off), so
+	     belt-and-suspenders here. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<!-- iPad landscape only in v1 (see docs/PLAN.md) — no phone/portrait layout exists. -->
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Onyx Remote connects to your Obsidian Onyx console on your local network to send programming commands and receive status.</string>
 	<key>UIAppFonts</key>
